@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DQ Dashboard Engine v3.1 — Technical Architecture & Data Engineering Showcase</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e17;--surface:#111827;--surface2:#1a2332;--border:rgba(148,163,184,.12);--text:#e2e8f0;--muted:#64748b;--accent:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--cyan:#06b6d4;--purple:#a78bfa;--pink:#f472b6;--mono:'SF Mono','Fira Code','Cascadia Code',monospace;--sans:'Inter',-apple-system,sans-serif}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;font-size:14px}
+a{color:var(--accent);text-decoration:none}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+.container{max-width:1400px;margin:0 auto;padding:24px 32px}
+.hero{text-align:center;padding:60px 0 40px;position:relative}
+.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(245,158,11,.06) 0%,transparent 70%);pointer-events:none}
+.hero-badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);margin-bottom:16px}
+.hero h1{font-size:42px;font-weight:800;letter-spacing:-.5px;background:linear-gradient(135deg,#f8fafc,#94a3b8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero .subtitle{font-size:16px;color:var(--muted);margin-top:8px;max-width:700px;margin-left:auto;margin-right:auto}
+.hero-metrics{display:flex;justify-content:center;gap:40px;margin-top:32px;flex-wrap:wrap}
+.hero-metric{text-align:center}
+.hero-metric .val{font-size:28px;font-weight:800;font-family:var(--mono)}
+.hero-metric .val.amber{color:var(--accent)}
+.hero-metric .val.cyan{color:var(--cyan)}
+.hero-metric .val.green{color:var(--green)}
+.hero-metric .val.purple{color:var(--purple)}
+.hero-metric .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.section{margin-top:48px}
+.section-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.section-title{font-size:24px;font-weight:700;margin-bottom:4px}
+.section-desc{color:var(--muted);font-size:13px;margin-bottom:24px;max-width:800px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;transition:border-color .2s}
+.card:hover{border-color:rgba(148,163,184,.25)}
+.card-title{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card-title .icon{font-size:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px}
+@media(max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+.code-block{background:#0d1117;border:1px solid #21262d;border-radius:8px;overflow:hidden;font-family:var(--mono);font-size:12px;line-height:1.7}
+.code-header{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#161b22;border-bottom:1px solid #21262d;font-size:11px;color:var(--muted)}
+.code-header .filename{color:var(--text);font-weight:600}
+.code-header .lang{color:var(--accent);font-weight:600}
+.code-body{padding:16px;overflow-x:auto;color:#c9d1d9}
+.code-body .kw{color:#ff7b72}
+.code-body .fn{color:#d2a8ff}
+.code-body .str{color:#a5d6ff}
+.code-body .cm{color:#8b949e;font-style:italic}
+.code-body .num{color:#79c0ff}
+.code-body .var{color:#ffa657}
+.code-body .const{color:#79c0ff}
+.terminal{background:#0d1117;border:1px solid #21262d;border-radius:8px;overflow:hidden;font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.terminal-header{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#161b22;border-bottom:1px solid #21262d}
+.terminal-dot{width:10px;height:10px;border-radius:50%}
+.terminal-dot.r{background:#ff5f56}.terminal-dot.y{background:#ffbd2e}.terminal-dot.g{background:#27c93f}
+.terminal-title{color:var(--muted);font-size:11px;margin-left:8px}
+.terminal-body{padding:16px;color:#c9d1d9;overflow-x:auto;max-height:500px;overflow-y:auto}
+.terminal-body .t-green{color:#3fb950}
+.terminal-body .t-yellow{color:#d29922}
+.terminal-body .t-red{color:#f85149}
+.terminal-body .t-cyan{color:#58a6ff}
+.terminal-body .t-bold{font-weight:700;color:#f0f6fc}
+.terminal-body .t-dim{color:#484f58}
+.pipeline-container{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;overflow-x:auto}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;font-family:var(--mono)}
+.tag-green{background:rgba(16,185,129,.15);color:var(--green)}
+.tag-amber{background:rgba(245,158,11,.15);color:var(--accent)}
+.tag-red{background:rgba(239,68,68,.15);color:var(--red)}
+.tag-blue{background:rgba(59,130,246,.15);color:var(--blue)}
+.tag-cyan{background:rgba(6,182,212,.15);color:var(--cyan)}
+.tag-purple{background:rgba(167,139,250,.15);color:var(--purple)}
+.tag-pink{background:rgba(244,114,182,.15);color:var(--pink)}
+.data-table{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)}
+.data-table th{text-align:left;padding:8px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);font-weight:600}
+.data-table td{padding:8px 12px;border-bottom:1px solid rgba(148,163,184,.06);color:var(--text)}
+.data-table tr:hover td{background:rgba(255,255,255,.02)}
+.data-table .num-cell{text-align:right;font-variant-numeric:tabular-nums}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.stat-box{flex:1;min-width:120px;background:var(--surface2);border-radius:8px;padding:12px 16px;border:1px solid var(--border)}
+.stat-box .stat-val{font-size:20px;font-weight:800;font-family:var(--mono)}
+.stat-box .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+@keyframes pulse-flow{0%{stroke-dashoffset:20}100%{stroke-dashoffset:0}}
+.connector{display:flex;align-items:center;gap:12px;padding:8px 0}
+.connector-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border),rgba(245,158,11,.3),var(--border))}
+.connector-label{font-size:10px;color:var(--accent);font-weight:600;white-space:nowrap}
+.gauge-container{display:flex;align-items:center;gap:24px;padding:20px;background:var(--surface2);border-radius:12px;border:1px solid var(--border)}
+.gauge-ring{position:relative;width:100px;height:100px;flex-shrink:0}
+.gauge-ring svg{transform:rotate(-90deg)}
+.gauge-ring .gauge-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;font-weight:800;font-family:var(--mono);color:var(--green)}
+.gauge-details{flex:1}
+.gauge-details .gauge-title{font-size:14px;font-weight:700;margin-bottom:8px}
+.gauge-bar{display:flex;gap:8px;margin-bottom:6px;align-items:center}
+.gauge-bar .bar-label{font-size:11px;color:var(--muted);width:140px;flex-shrink:0}
+.gauge-bar .bar-track{flex:1;height:6px;background:rgba(148,163,184,.1);border-radius:3px;overflow:hidden}
+.gauge-bar .bar-fill{height:100%;border-radius:3px;transition:width .8s ease}
+.gauge-bar .bar-val{font-size:11px;font-family:var(--mono);font-weight:600;width:40px;text-align:right}
+.nav{position:sticky;top:0;z-index:100;background:rgba(10,14,23,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 0;margin-bottom:8px}
+.nav-inner{max-width:1400px;margin:0 auto;padding:0 32px;display:flex;gap:6px;overflow-x:auto}
+.nav-btn{padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;color:var(--muted);background:transparent;border:1px solid transparent;cursor:pointer;white-space:nowrap;font-family:var(--sans);transition:all .2s}
+.nav-btn:hover{color:var(--text);background:var(--surface)}
+.nav-btn.active{color:var(--accent);border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.08)}
+.json-tree{font-family:var(--mono);font-size:11.5px;line-height:1.7;color:#c9d1d9}
+.json-tree .json-key{color:#ff7b72}
+.json-tree .json-str{color:#a5d6ff}
+.json-tree .json-num{color:#79c0ff}
+.ext-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:11px;font-family:var(--mono)}
+.ext-chip .ext-dot{width:8px;height:8px;border-radius:50%}
+.footer{margin-top:64px;padding:24px 0;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:11px}
+</style>
+</head>
+<body>
+<nav class="nav">
+<div class="nav-inner">
+<button class="nav-btn active" onclick="scrollToSection('hero')">Overview</button>
+<button class="nav-btn" onclick="scrollToSection('master-engine')">Master Engine</button>
+<button class="nav-btn" onclick="scrollToSection('extraction')">ETL Pipeline</button>
+<button class="nav-btn" onclick="scrollToSection('extractors')">9 Extractors</button>
+<button class="nav-btn" onclick="scrollToSection('validation')">Validation</button>
+<button class="nav-btn" onclick="scrollToSection('ledger')">JSON Ledger</button>
+<button class="nav-btn" onclick="scrollToSection('template')">Template Builder</button>
+<button class="nav-btn" onclick="scrollToSection('lifecycle')">Lifecycle</button>
+<button class="nav-btn" onclick="scrollToSection('export')">7-Sheet Export</button>
+<button class="nav-btn" onclick="scrollToSection('live-terminal')">Live Terminal</button>
+<button class="nav-btn" onclick="scrollToSection('dashboard-output')">Dashboard Output</button>
+<button class="nav-btn" onclick="scrollToSection('specs')">Specs</button>
+</div>
+</nav>
+<div class="container">
+
+<!-- HERO -->
+<section class="hero" id="hero">
+<div class="hero-badge">PorchPass Strategic Operations &mdash; Capital Markets Data Infrastructure</div>
+<h1>DQ Dashboard Engine v3.1</h1>
+<p class="subtitle">A 2,846-line Python ETL system that extracts, validates, snapshots, and transforms raw portfolio data from a 313K-cell Excel workbook into investor-grade delinquency analytics &mdash; with zero manual intervention.</p>
+<div class="hero-metrics">
+<div class="hero-metric"><div class="val amber">2,846</div><div class="label">Lines of Python</div></div>
+<div class="hero-metric"><div class="val cyan">313,493</div><div class="label">Source Cells Processed</div></div>
+<div class="hero-metric"><div class="val green">126,199</div><div class="label">Live Excel Formulas</div></div>
+<div class="hero-metric"><div class="val purple">9</div><div class="label">Extraction Modules</div></div>
+<div class="hero-metric"><div class="val amber">35</div><div class="label">Source Worksheets</div></div>
+<div class="hero-metric"><div class="val cyan">413</div><div class="label">Loans Tracked</div></div>
+</div>
+</section>
+
+<!-- MASTER ENGINE WORKBOOK -->
+<section class="section" id="master-engine">
+<div class="section-label">Source System</div>
+<div class="section-title">Master Engine Workbook: RCU_Feb2026_Engine</div>
+<p class="section-desc">The 35-sheet, 3.8 MB Excel workbook that serves as the single source of truth for the Rogue Credit Union portfolio. The DQ Engine reads from 9 structured input tabs auto-populated by 126,199 live formulas.</p>
+<div class="grid-3" style="margin-bottom:16px">
+<div class="stat-box"><div class="stat-val" style="color:var(--cyan)">35</div><div class="stat-label">Total Worksheets</div></div>
+<div class="stat-box"><div class="stat-val" style="color:var(--accent)">313,493</div><div class="stat-label">Cells with Data</div></div>
+<div class="stat-box"><div class="stat-val" style="color:var(--green)">126,199</div><div class="stat-label">Live Formulas</div></div>
+</div>
+<div class="card">
+<div class="card-title"><span class="icon">&#128202;</span> Workbook Sheet Architecture (Top 12 by Cell Count)</div>
+<table class="data-table">
+<thead><tr><th>Sheet Name</th><th>Purpose</th><th style="text-align:right">Cells</th><th style="text-align:right">Formulas</th><th style="text-align:right">Rows x Cols</th></tr></thead>
+<tbody>
+<tr><td><span class="tag tag-amber">Loan Sale Data</span></td><td>Master loan tape &mdash; 92 fields per loan</td><td class="num-cell">30,142</td><td class="num-cell" style="color:var(--accent)">27,862</td><td class="num-cell">443 x 92</td></tr>
+<tr><td><span class="tag tag-cyan">Rogue</span></td><td>Payment transaction ledger</td><td class="num-cell">48,230</td><td class="num-cell" style="color:var(--accent)">13,068</td><td class="num-cell">3,275 x 17</td></tr>
+<tr><td><span class="tag tag-blue">Rogue Data Dump</span></td><td>Raw servicer data import (02-15-2026)</td><td class="num-cell">33,501</td><td class="num-cell">0</td><td class="num-cell">409 x 88</td></tr>
+<tr><td><span class="tag tag-purple">Loan Sale Data (PRE)</span></td><td>Pre-transformation loan tape</td><td class="num-cell">28,212</td><td class="num-cell" style="color:var(--accent)">19,577</td><td class="num-cell">440 x 84</td></tr>
+<tr><td><span class="tag tag-green">P2 Originated Loans</span></td><td>Phase 2 originated, serviced loans</td><td class="num-cell">26,368</td><td class="num-cell">797</td><td class="num-cell">399 x 76</td></tr>
+<tr><td><span class="tag tag-cyan">Trial Balance Nov2025</span></td><td>Trial balance reconciliation</td><td class="num-cell">25,196</td><td class="num-cell" style="color:var(--accent)">22,742</td><td class="num-cell">400 x 68</td></tr>
+<tr><td><span class="tag tag-blue">Midwest Validation</span></td><td>Servicer validation crosscheck</td><td class="num-cell">17,820</td><td class="num-cell" style="color:var(--accent)">17,776</td><td class="num-cell">405 x 44</td></tr>
+<tr><td><span class="tag tag-purple">Midwest TBAL</span></td><td>Midwest trial balance</td><td class="num-cell">19,296</td><td class="num-cell">0</td><td class="num-cell">402 x 50</td></tr>
+<tr><td><span class="tag tag-amber">Midwest</span></td><td>Midwest servicer data</td><td class="num-cell">16,872</td><td class="num-cell" style="color:var(--accent)">4,067</td><td class="num-cell">582 x 31</td></tr>
+<tr><td><span class="tag tag-green">PorchPass</span></td><td>Internal payment tracking</td><td class="num-cell">13,213</td><td class="num-cell" style="color:var(--accent)">6,811</td><td class="num-cell">2,768 x 17</td></tr>
+<tr><td><span class="tag tag-cyan">MAIC Analytics</span></td><td>Portfolio analytics &amp; DQ calculations</td><td class="num-cell">~8,500</td><td class="num-cell" style="color:var(--accent)">~6,200</td><td class="num-cell">710 x 34</td></tr>
+<tr><td style="color:var(--muted);font-style:italic">+ 24 additional sheets</td><td style="color:var(--muted)">Config, QA, Servicing, Mapping, Calendar...</td><td class="num-cell" style="color:var(--muted)">~46,643</td><td class="num-cell" style="color:var(--muted)">~7,299</td><td class="num-cell" style="color:var(--muted)">&mdash;</td></tr>
+</tbody>
+</table>
+</div>
+<div class="connector"><div class="connector-line"></div><div class="connector-label">&#9660; DQ Engine Reads 9 Structured Tabs via openpyxl &#9660;</div><div class="connector-line"></div></div>
+<div class="card">
+<div class="card-title"><span class="icon">&#128268;</span> Engine Input Tabs (Extracted by dq_engine_v3_1.py)</div>
+<div class="grid-3">
+<div class="ext-chip"><span class="ext-dot" style="background:var(--green)"></span><code>1_KPI_Strip</code> <span style="color:var(--muted)">&mdash; 40 fields</span></div>
+<div class="ext-chip"><span class="ext-dot" style="background:var(--blue)"></span><code>2_DQ_Trend_Chart</code> <span style="color:var(--muted)">&mdash; 12 fields</span></div>
+<div class="ext-chip"><span class="ext-dot" style="background:var(--cyan)"></span><code>3_DPD_Distribution</code> <span style="color:var(--muted)">&mdash; 25 fields</span></div>
+<div class="ext-chip"><span class="ext-dot" style="background:var(--accent)"></span><code>4_Vintage_Segmentation</code> <span style="color:var(--muted)">&mdash; dynamic</span></div>
+<div class="ext-chip"><span class="ext-dot" style="background:var(--purple)"></span><code>5_Tables_Narrative</code> <span style="color:var(--muted)">&mdash; 12 + 5 arrays</span></div>
+<div class="ext-chip"><span class="ext-dot" style="background:var(--pink)"></span><code>6_Note_Rate_Bands</code> <span style="color:var(--muted)">&mdash; 18-col matrix</span></div>
+<div class="ext-chip"><span class="ext-dot" style="background:var(--green)"></span><code>7_Weighted_Avg_Stats</code> <span style="color:var(--muted)">&mdash; 6 metrics</span></div>
+<div class="ext-chip"><span class="ext-dot" style="background:var(--blue)"></span><code>8_Land_Type</code> <span style="color:var(--muted)">&mdash; 18-col matrix</span></div>
+<div class="ext-chip"><span class="ext-dot" style="background:var(--cyan)"></span><code>9_Credit_Score_Tier</code> <span style="color:var(--muted)">&mdash; 19-col matrix</span></div>
+</div>
+</div>
+</section>
+
+<!-- ETL PIPELINE -->
+<section class="section" id="extraction">
+<div class="section-label">Core Architecture</div>
+<div class="section-title">End-to-End ETL Pipeline</div>
+<p class="section-desc">Complete data flow: Raw Excel &rarr; 9 Extractors &rarr; Validation &rarr; JSON Snapshot &rarr; Template/Export/Dashboard.</p>
+<div class="pipeline-container">
+<svg width="1300" height="200" viewBox="0 0 1300 200" xmlns="http://www.w3.org/2000/svg">
+<rect x="10" y="50" width="150" height="90" rx="8" fill="#1a2332" stroke="#334155"/>
+<text x="85" y="78" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="700" font-family="Inter,sans-serif">SOURCE</text>
+<text x="85" y="98" text-anchor="middle" fill="#e2e8f0" font-size="10" font-family="monospace">RCU_Engine.xlsx</text>
+<text x="85" y="114" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">35 sheets | 313K cells</text>
+<text x="85" y="128" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">126K formulas</text>
+<line x1="160" y1="95" x2="205" y2="95" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3"><animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.5s" repeatCount="indefinite"/></line>
+<polygon points="200,90 210,95 200,100" fill="#f59e0b"/>
+<rect x="210" y="50" width="150" height="90" rx="8" fill="#1a2332" stroke="#10b981" stroke-width="1.5"/>
+<text x="285" y="78" text-anchor="middle" fill="#10b981" font-size="11" font-weight="700" font-family="Inter,sans-serif">EXTRACT</text>
+<text x="285" y="98" text-anchor="middle" fill="#e2e8f0" font-size="10" font-family="monospace">9 Tab Extractors</text>
+<text x="285" y="114" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">KPI_MAP[40] | DPD_MAP[25]</text>
+<text x="285" y="128" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">Cell-level coordinates</text>
+<line x1="360" y1="95" x2="405" y2="95" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4,3"><animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.5s" repeatCount="indefinite"/></line>
+<polygon points="400,90 410,95 400,100" fill="#10b981"/>
+<rect x="410" y="50" width="150" height="90" rx="8" fill="#1a2332" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="485" y="78" text-anchor="middle" fill="#3b82f6" font-size="11" font-weight="700" font-family="Inter,sans-serif">VALIDATE</text>
+<text x="485" y="98" text-anchor="middle" fill="#e2e8f0" font-size="10" font-family="monospace">12 QC Checks</text>
+<text x="485" y="114" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">Cross-tab | Rate sanity</text>
+<text x="485" y="128" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">Null scan | Consistency</text>
+<line x1="560" y1="95" x2="605" y2="95" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,3"><animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.5s" repeatCount="indefinite"/></line>
+<polygon points="600,90 610,95 600,100" fill="#3b82f6"/>
+<rect x="610" y="50" width="150" height="90" rx="8" fill="#1a2332" stroke="#a78bfa" stroke-width="1.5"/>
+<text x="685" y="78" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="700" font-family="Inter,sans-serif">SNAPSHOT</text>
+<text x="685" y="98" text-anchor="middle" fill="#e2e8f0" font-size="10" font-family="monospace">dq_ledger.json</text>
+<text x="685" y="114" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">DRAFT / FINAL / ARCHIVED</text>
+<text x="685" y="128" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">Auto-backup (last 10)</text>
+<line x1="760" y1="95" x2="805" y2="95" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4,3"><animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.5s" repeatCount="indefinite"/></line>
+<polygon points="800,90 810,95 800,100" fill="#a78bfa"/>
+<rect x="810" y="50" width="150" height="90" rx="8" fill="#1a2332" stroke="#f59e0b" stroke-width="1.5"/>
+<text x="885" y="78" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="700" font-family="Inter,sans-serif">TRANSFORM</text>
+<text x="885" y="98" text-anchor="middle" fill="#e2e8f0" font-size="10" font-family="monospace">Template Builder</text>
+<text x="885" y="114" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">N-column xlsx (2-12)</text>
+<text x="885" y="128" text-anchor="middle" fill="#64748b" font-size="9" font-family="monospace">Pixel-perfect output</text>
+<line x1="960" y1="95" x2="1005" y2="95" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3"><animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.5s" repeatCount="indefinite"/></line>
+<polygon points="1000,90 1010,95 1000,100" fill="#f59e0b"/>
+<rect x="1010" y="30" width="170" height="140" rx="8" fill="#1a2332" stroke="#06b6d4" stroke-width="1.5"/>
+<text x="1095" y="58" text-anchor="middle" fill="#06b6d4" font-size="11" font-weight="700" font-family="Inter,sans-serif">OUTPUT</text>
+<text x="1095" y="80" text-anchor="middle" fill="#e2e8f0" font-size="9.5" font-family="monospace">&#9658; Input Template (.xlsx)</text>
+<text x="1095" y="98" text-anchor="middle" fill="#e2e8f0" font-size="9.5" font-family="monospace">&#9658; 7-Sheet Export (.xlsx)</text>
+<text x="1095" y="116" text-anchor="middle" fill="#e2e8f0" font-size="9.5" font-family="monospace">&#9658; DQ Dashboard (.html)</text>
+<text x="1095" y="134" text-anchor="middle" fill="#e2e8f0" font-size="9.5" font-family="monospace">&#9658; Validation Reports</text>
+<text x="1095" y="152" text-anchor="middle" fill="#e2e8f0" font-size="9.5" font-family="monospace">&#9658; Diff / Digest Logs</text>
+<text x="85" y="170" text-anchor="middle" fill="#64748b" font-size="9" font-family="Inter,sans-serif">openpyxl</text>
+<text x="285" y="170" text-anchor="middle" fill="#64748b" font-size="9" font-family="Inter,sans-serif">extract_all_tabs()</text>
+<text x="485" y="170" text-anchor="middle" fill="#64748b" font-size="9" font-family="Inter,sans-serif">validate_snapshot()</text>
+<text x="685" y="170" text-anchor="middle" fill="#64748b" font-size="9" font-family="Inter,sans-serif">save_ledger()</text>
+<text x="885" y="170" text-anchor="middle" fill="#64748b" font-size="9" font-family="Inter,sans-serif">build_template()</text>
+<text x="1095" y="185" text-anchor="middle" fill="#64748b" font-size="9" font-family="Inter,sans-serif">export_ledger_excel()</text>
+</svg>
+</div>
+</section>
+
+<!-- 9 EXTRACTORS -->
+<section class="section" id="extractors">
+<div class="section-label">Extraction Engine</div>
+<div class="section-title">9 Specialized Data Extractors</div>
+<p class="section-desc">Each extractor uses hardcoded cell-coordinate maps to pull exact values from the master workbook. Every field traces back to a specific Excel cell address.</p>
+
+<div class="card" style="margin-bottom:16px">
+<div class="card-title"><span class="icon">&#9312;</span> _extract_kpi() &mdash; 40-Field KPI Strip <span class="tag tag-green">Tab 1</span></div>
+<p style="color:var(--muted);font-size:12px;margin-bottom:16px">Maps 40 JSON keys to exact Excel row/column coordinates. Each DQ tier captures Rate, Count, UPB, UPB Abbreviated, UPB%, and Tooltip &mdash; 6 fields each for DQ30+, DQ60+, Demanded, NTV, Repo, Performing plus metadata.</p>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">Lines 385-405</span></div>
+<div class="code-body"><span class="cm"># Cell coordinate map: (json_key, excel_row) -- all read from Column D</span>
+<span class="var">KPI_MAP</span> = [
+    (<span class="str">"DQ30_Rate_Pct"</span>,<span class="num">6</span>), (<span class="str">"DQ30_Loan_Count"</span>,<span class="num">7</span>), (<span class="str">"DQ30_UPB"</span>,<span class="num">8</span>),
+    (<span class="str">"DQ30_UPB_Abbrev"</span>,<span class="num">9</span>), (<span class="str">"DQ30_UPB_Pct"</span>,<span class="num">10</span>), (<span class="str">"DQ30_Tooltip"</span>,<span class="num">11</span>),
+    <span class="cm"># ... DQ60 (rows 13-18), Demanded (20-25), NTV (27-32),</span>
+    <span class="cm"># ... Repo (34-39), Performing (41-46), Metadata (49-52)</span>
+    (<span class="str">"Performing_Rate_Pct"</span>,<span class="num">41</span>), (<span class="str">"Performing_Loan_Count"</span>,<span class="num">42</span>),
+    (<span class="str">"Performing_UPB"</span>,<span class="num">43</span>), ... (<span class="str">"Total_Loan_Count"</span>,<span class="num">52</span>),
+]
+
+<span class="kw">def</span> <span class="fn">_extract_kpi</span>(ws):
+    <span class="kw">return</span> {k: <span class="fn">safe_val</span>(ws.<span class="fn">cell</span>(row=r, column=<span class="num">4</span>).value) <span class="kw">for</span> k,r <span class="kw">in</span> KPI_MAP}
+
+<span class="kw">def</span> <span class="fn">_extract_kpi_ref</span>(ws):  <span class="cm"># Reference column (Column C = prior period)</span>
+    <span class="kw">return</span> {k: <span class="fn">safe_val</span>(ws.<span class="fn">cell</span>(row=r, column=<span class="num">3</span>).value) <span class="kw">for</span> k,r <span class="kw">in</span> KPI_MAP}</div>
+</div>
+<div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--text);margin-bottom:8px">Live Extracted Values (2026-02 MTD FINAL):</div>
+<div class="grid-4">
+<div class="stat-box"><div class="stat-val" style="color:var(--green);font-size:16px">3.87%</div><div class="stat-label">DQ30+ Rate</div></div>
+<div class="stat-box"><div class="stat-val" style="color:var(--accent);font-size:16px">16</div><div class="stat-label">DQ30+ Loans</div></div>
+<div class="stat-box"><div class="stat-val" style="color:var(--cyan);font-size:16px">$1.67M</div><div class="stat-label">DQ30+ UPB</div></div>
+<div class="stat-box"><div class="stat-val" style="color:var(--green);font-size:16px">95.4%</div><div class="stat-label">Performing</div></div>
+</div>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+<div class="card-title"><span class="icon">&#9314;</span> _extract_dpd() &mdash; 25-Field DPD Distribution <span class="tag tag-cyan">Tab 3</span></div>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">Lines 422-436</span></div>
+<div class="code-body"><span class="var">DPD_MAP</span> = [
+    (<span class="str">"Current_0DPD_Count"</span>,<span class="num">6</span>), (<span class="str">"Current_0DPD_UPB"</span>,<span class="num">7</span>), (<span class="str">"Current_0DPD_UPB_Pct"</span>,<span class="num">8</span>),
+    (<span class="str">"DPD_1_29_Count"</span>,<span class="num">10</span>), (<span class="str">"DPD_1_29_UPB"</span>,<span class="num">11</span>), (<span class="str">"DPD_1_29_UPB_Pct"</span>,<span class="num">12</span>),
+    (<span class="str">"DPD_30_59_Count"</span>,<span class="num">14</span>), (<span class="str">"DPD_30_59_UPB"</span>,<span class="num">15</span>), (<span class="str">"DPD_30_59_UPB_Pct"</span>,<span class="num">16</span>),
+    (<span class="str">"DPD_60_89_Count"</span>,<span class="num">18</span>), (<span class="str">"DPD_60_89_UPB"</span>,<span class="num">19</span>), (<span class="str">"DPD_60_89_UPB_Pct"</span>,<span class="num">20</span>),
+    (<span class="str">"DPD_90_119_Count"</span>,<span class="num">22</span>), (<span class="str">"DPD_90_119_UPB"</span>,<span class="num">23</span>), (<span class="str">"DPD_90_119_UPB_Pct"</span>,<span class="num">24</span>),
+    (<span class="str">"DPD_120_Plus_Count"</span>,<span class="num">26</span>), (<span class="str">"DPD_120_Plus_UPB"</span>,<span class="num">27</span>), (<span class="str">"DPD_120_Plus_UPB_Pct"</span>,<span class="num">28</span>),
+    (<span class="str">"Paid_Off_Count"</span>,<span class="num">30</span>), (<span class="str">"Paid_Off_Pct"</span>,<span class="num">31</span>),
+    (<span class="str">"Paid_Ahead_Count"</span>,<span class="num">33</span>), (<span class="str">"Paid_Ahead_UPB"</span>,<span class="num">34</span>), (<span class="str">"Paid_Ahead_UPB_Pct"</span>,<span class="num">35</span>),
+    (<span class="str">"Total_Portfolio_Loans"</span>,<span class="num">37</span>),
+]</div>
+</div>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+<div class="card-title"><span class="icon">&#9317;</span> _extract_matrix_full() &mdash; Dynamic 18-Column Matrix <span class="tag tag-purple">Tabs 6, 8, 9</span></div>
+<p style="color:var(--muted);font-size:12px;margin-bottom:16px">A single polymorphic extractor handles three matrix tabs (Note Rate Bands, Land Type, Credit Score Tier). Dynamically discovers column headers at row 2, then iterates all data rows capturing every cell by header name.</p>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">Lines 492-514</span></div>
+<div class="code-body"><span class="kw">def</span> <span class="fn">_extract_matrix_full</span>(ws):
+    headers = []
+    <span class="kw">for</span> c <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, ws.max_column + <span class="num">1</span>):
+        v = ws.<span class="fn">cell</span>(row=<span class="num">2</span>, column=c).value
+        <span class="kw">if</span> v: headers.<span class="fn">append</span>(<span class="fn">str</span>(v))
+        <span class="kw">else</span>: <span class="kw">break</span>
+    rows = []
+    <span class="kw">for</span> r <span class="kw">in</span> <span class="fn">range</span>(<span class="num">3</span>, ws.max_row + <span class="num">1</span>):
+        a = ws.<span class="fn">cell</span>(row=r, column=<span class="num">1</span>).value
+        <span class="kw">if</span> a <span class="kw">is</span> <span class="const">None</span>: <span class="kw">continue</span>
+        row_data = {<span class="str">"_label"</span>: <span class="fn">safe_val</span>(a)}
+        <span class="kw">for</span> ci, hdr <span class="kw">in</span> <span class="fn">enumerate</span>(headers):
+            row_data[hdr] = <span class="fn">safe_val</span>(ws.<span class="fn">cell</span>(row=r, column=ci+<span class="num">1</span>).value)
+        <span class="kw">if</span> <span class="fn">str</span>(a).<span class="fn">upper</span>() == <span class="str">"TOTAL"</span>: row_data[<span class="str">"_is_total"</span>] = <span class="const">True</span>
+        rows.<span class="fn">append</span>(row_data)
+    <span class="kw">return</span> {<span class="str">"_title"</span>: <span class="fn">safe_val</span>(ws.<span class="fn">cell</span>(<span class="num">1</span>,<span class="num">1</span>).value), <span class="str">"_headers"</span>: headers, <span class="str">"rows"</span>: rows}</div>
+</div>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+<div class="card-title"><span class="icon">&#9315;</span> _extract_vintage() &mdash; Dynamic Label Parsing <span class="tag tag-amber">Tab 4</span></div>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">Lines 439-466</span></div>
+<div class="code-body"><span class="kw">def</span> <span class="fn">_extract_vintage</span>(ws):
+    lc, dq = {}, {}
+    <span class="kw">for</span> row <span class="kw">in</span> <span class="fn">range</span>(<span class="num">5</span>, ws.max_row + <span class="num">1</span>):
+        b = ws.<span class="fn">cell</span>(row=row, column=<span class="num">2</span>).value
+        s = <span class="fn">str</span>(b).<span class="fn">strip</span>()
+        <span class="kw">if</span> s.<span class="fn">startswith</span>(<span class="str">"Loan Count"</span>):
+            label = re.<span class="fn">sub</span>(<span class="str">r'^Loan Count\s*[-\u2014]+\s*'</span>, <span class="str">''</span>, s).<span class="fn">strip</span>()
+            lc[label] = <span class="fn">safe_val</span>(d)
+        <span class="kw">elif</span> s.<span class="fn">startswith</span>(<span class="str">"DQ30+"</span>):
+            label = re.<span class="fn">sub</span>(<span class="str">r'^DQ30\+\s*Rate\s*[-\u2014]+\s*'</span>, <span class="str">''</span>, s).<span class="fn">strip</span>()
+            dq[label] = <span class="fn">safe_val</span>(d)
+    <span class="kw">return</span> {<span class="str">"loan_counts"</span>: lc, <span class="str">"dq30_rates"</span>: dq}
+
+<span class="var">VINTAGE_ORDER</span> = [<span class="str">"Nov 24"</span>,<span class="str">"Dec 24"</span>,<span class="str">"Jan 25"</span>,...,<span class="str">"Jun 26"</span>] <span class="cm"># Chronological sort</span></div>
+</div>
+</div>
+</section>
+
+<!-- VALIDATION ENGINE -->
+<section class="section" id="validation">
+<div class="section-label">Data Quality</div>
+<div class="section-title">Cross-Tab Validation Engine</div>
+<p class="section-desc">Every snapshot runs through 12 automated QC checks before persistence. Cross-references data between tabs to catch inconsistencies that would undermine investor confidence.</p>
+<div class="grid-2">
+<div class="card">
+<div class="card-title"><span class="icon">&#128270;</span> validate_snapshot() &mdash; 12 QC Checks</div>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">Lines 1212-1293</span></div>
+<div class="code-body"><span class="cm"># CHECK 1: Tab Presence (9/9 expected)</span>
+tabs_present = [t <span class="kw">for</span> t <span class="kw">in</span> ALL_EXPECTED_TABS
+                <span class="kw">if</span> t <span class="kw">in</span> period_data <span class="kw">and</span> period_data[t]]
+
+<span class="cm"># CHECK 4-9: Rate sanity (must be 0.0 - 1.0)</span>
+<span class="kw">for</span> key <span class="kw">in</span> [<span class="str">"DQ30_Rate_Pct"</span>, <span class="str">"DQ60_Rate_Pct"</span>,
+            <span class="str">"Performing_Rate_Pct"</span>, ...]:
+    ok = <span class="num">0</span> &lt;= val &lt;= <span class="num">1.0</span>
+
+<span class="cm"># CHECK 10: Cross-tab consistency</span>
+<span class="cm"># Tab1.DQ30_Count == Tab3(30-59 + 60-89 + 90-119 + 120+)</span>
+dpd_sum = dpd_30_59 + dpd_60_89 + dpd_90_119 + dpd_120
+match = (dq30_kpi == dpd_sum)
+
+<span class="cm"># CHECK 12: Null field scan</span>
+<span class="kw">for</span> key <span class="kw">in</span> critical_fields:
+    <span class="kw">if</span> kpi.<span class="fn">get</span>(key) <span class="kw">is</span> <span class="const">None</span>:
+        null_fields.<span class="fn">append</span>(f<span class="str">"1_KPI_Strip.{key}"</span>)</div>
+</div>
+</div>
+<div class="card">
+<div class="card-title"><span class="icon">&#128196;</span> Live Validation Report (2026-02_MTD_W4)</div>
+<div class="terminal">
+<div class="terminal-header"><span class="terminal-dot r"></span><span class="terminal-dot y"></span><span class="terminal-dot g"></span><span class="terminal-title">VALIDATION_2026-02_MTD_W4.txt</span></div>
+<div class="terminal-body">VALIDATION REPORT: 2026-02_MTD_W4
+Generated: 2026-02-22 07:50:47
+Result: <span class="t-green">11 passed</span>, <span class="t-red">1 failed</span>
+<span class="t-dim">============================================================</span>
+  <span class="t-green">[OK]</span> Tabs present: 9/9 tabs
+  <span class="t-green">[OK]</span> Total Loan Count exists: Value: <span class="t-bold">413</span>
+  <span class="t-green">[OK]</span> DQ30+ Count exists: Value: <span class="t-bold">16</span>
+  <span class="t-green">[OK]</span> DQ30_Rate_Pct in range: <span class="t-bold">0.0387</span>
+  <span class="t-green">[OK]</span> DQ60_Rate_Pct in range: <span class="t-bold">0.0339</span>
+  <span class="t-green">[OK]</span> Performing_Rate_Pct in range: <span class="t-bold">0.9540</span>
+  <span class="t-green">[OK]</span> Demanded_Rate_Pct in range: <span class="t-bold">0.0121</span>
+  <span class="t-green">[OK]</span> NTV_Rate_Pct in range: <span class="t-bold">0.0218</span>
+  <span class="t-green">[OK]</span> Repo_Rate_Pct in range: <span class="t-bold">0.0073</span>
+  <span class="t-red">[!!]</span> Cross-tab: Tab1 DQ30+ Count vs Tab3 bucket sum:
+       <span class="t-yellow">KPI=16, Tab3 sum=19</span> <span class="t-red">MISMATCH</span>
+  <span class="t-green">[OK]</span> Cross-tab: Tab1 Total vs Tab3 Total: KPI=413, Tab3=413
+  <span class="t-green">[OK]</span> Null field scan: No critical nulls detected
+
+<span class="t-red">FAILED</span> -- 11/12 checks</div>
+</div>
+</div>
+</div>
+<div class="card" style="margin-top:16px">
+<div class="card-title"><span class="icon">&#127919;</span> RAG Threshold Intelligence</div>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">Lines 1388-1399</span></div>
+<div class="code-body"><span class="var">RAG_THRESHOLDS</span> = {
+    <span class="str">"DQ30_Rate_Pct"</span>:       (<span class="str">"lower_is_better"</span>,  <span class="num">0.05</span>, <span class="num">0.10</span>),   <span class="cm"># &lt;5% green, &gt;10% red</span>
+    <span class="str">"DQ60_Rate_Pct"</span>:       (<span class="str">"lower_is_better"</span>,  <span class="num">0.03</span>, <span class="num">0.07</span>),   <span class="cm"># &lt;3% green, &gt;7% red</span>
+    <span class="str">"Performing_Rate_Pct"</span>: (<span class="str">"higher_is_better"</span>, <span class="num">0.90</span>, <span class="num">0.80</span>),   <span class="cm"># &gt;90% green, &lt;80% red</span>
+    <span class="str">"DQ30_Loan_Count"</span>:     (<span class="str">"lower_is_better"</span>,  <span class="num">20</span>,   <span class="num">40</span>),
+    <span class="str">"DQ60_Loan_Count"</span>:     (<span class="str">"lower_is_better"</span>,  <span class="num">10</span>,   <span class="num">25</span>),
+    <span class="str">"Demanded_Loan_Count"</span>: (<span class="str">"lower_is_better"</span>,  <span class="num">5</span>,    <span class="num">15</span>),
+    <span class="str">"NTV_Loan_Count"</span>:      (<span class="str">"lower_is_better"</span>,  <span class="num">3</span>,    <span class="num">10</span>),
+    <span class="str">"Repo_Loan_Count"</span>:     (<span class="str">"lower_is_better"</span>,  <span class="num">2</span>,    <span class="num">8</span>),
+}</div>
+</div>
+<div class="stat-row">
+<div class="stat-box" style="border-left:3px solid var(--green)"><div class="stat-val" style="color:var(--green);font-size:14px">3.87%</div><div class="stat-label">DQ30+ -- GREEN (&lt;5%)</div></div>
+<div class="stat-box" style="border-left:3px solid var(--accent)"><div class="stat-val" style="color:var(--accent);font-size:14px">3.39%</div><div class="stat-label">DQ60+ -- AMBER (3-7%)</div></div>
+<div class="stat-box" style="border-left:3px solid var(--green)"><div class="stat-val" style="color:var(--green);font-size:14px">95.4%</div><div class="stat-label">Performing -- GREEN (&gt;90%)</div></div>
+<div class="stat-box" style="border-left:3px solid var(--green)"><div class="stat-val" style="color:var(--green);font-size:14px">16</div><div class="stat-label">DQ30 Count -- GREEN (&lt;20)</div></div>
+</div>
+</div>
+</section>
+
+<!-- JSON LEDGER -->
+<section class="section" id="ledger">
+<div class="section-label">Persistence Layer</div>
+<div class="section-title">JSON Ledger Database</div>
+<p class="section-desc">Central datastore holding all historical snapshots with auto-rotating backups (last 10 copies retained before every write).</p>
+<div class="grid-2">
+<div class="card">
+<div class="card-title"><span class="icon">&#128451;</span> Ledger Structure (Production Data)</div>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_ledger.json</span><span class="lang">51,129 bytes</span></div>
+<div class="code-body"><div class="json-tree">{
+  <span class="json-key">"metadata"</span>: {
+    <span class="json-key">"version"</span>: <span class="json-str">"3.1"</span>,
+    <span class="json-key">"period_count"</span>: <span class="json-num">3</span>,
+    <span class="json-key">"periods_available"</span>: [<span class="json-str">"2026-01_EOM"</span>, <span class="json-str">"2026-02_MTD"</span>, <span class="json-str">"2026-02_MTD_W3"</span>]
+  },
+  <span class="json-key">"periods"</span>: {
+    <span class="json-key">"2026-02_MTD"</span>: {
+      <span class="json-key">"_status"</span>: <span class="json-str">"FINAL"</span>,
+      <span class="json-key">"source_file"</span>: <span class="json-str">"RCU_Feb2026_Engine - v1.xlsx"</span>,
+      <span class="json-key">"1_KPI_Strip"</span>: {
+        <span class="json-key">"DQ30_Rate_Pct"</span>: <span class="json-num">0.0387409200968523</span>,
+        <span class="json-key">"DQ30_Loan_Count"</span>: <span class="json-num">16</span>,
+        <span class="json-key">"DQ30_UPB"</span>: <span class="json-num">1666547.59</span>,
+        <span class="json-key">"Performing_Rate_Pct"</span>: <span class="json-num">0.9539951573849879</span>,
+        <span class="json-key">"Total_Loan_Count"</span>: <span class="json-num">413</span>
+        <span class="cm">// ... 35 more KPI fields</span>
+      },
+      <span class="json-key">"3_DPD_Distribution"</span>: {
+        <span class="json-key">"Current_0DPD_Count"</span>: <span class="json-num">352</span>,
+        <span class="json-key">"Current_0DPD_UPB"</span>: <span class="json-num">45255316.51</span>
+        <span class="cm">// ... 22 more DPD fields</span>
+      },
+      <span class="json-key">"7_Weighted_Avg_Portfolio_Stats"</span>: {
+        <span class="json-key">"WAC"</span>: <span class="json-num">0.0986</span>, <span class="json-key">"Average_FICO"</span>: <span class="json-num">618</span>,
+        <span class="json-key">"Average_LTV"</span>: <span class="json-num">0.847</span>
+      }
+    }
+  }
+}</div></div>
+</div>
+</div>
+<div class="card">
+<div class="card-title"><span class="icon">&#128260;</span> Auto-Backup &amp; Snapshot Diff</div>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">Lines 181-196</span></div>
+<div class="code-body"><span class="kw">def</span> <span class="fn">save_ledger</span>(ledger):
+    <span class="cm"># Auto-backup before every write</span>
+    <span class="kw">if</span> os.path.<span class="fn">exists</span>(LEDGER_PATH):
+        ts = datetime.<span class="fn">now</span>().<span class="fn">strftime</span>(<span class="str">"%Y%m%d_%H%M%S"</span>)
+        shutil.<span class="fn">copy2</span>(LEDGER_PATH,
+            f<span class="str">"_backups/ledger_backup_{ts}.json"</span>)
+        <span class="cm"># Rotate: keep only last 10</span>
+        bkps = <span class="fn">sorted</span>(glob.<span class="fn">glob</span>(<span class="str">"ledger_backup_*.json"</span>))
+        <span class="kw">for</span> old <span class="kw">in</span> bkps[:-<span class="num">10</span>]: os.<span class="fn">remove</span>(old)</div>
+</div>
+<div style="margin-top:16px">
+<div class="terminal">
+<div class="terminal-header"><span class="terminal-dot r"></span><span class="terminal-dot y"></span><span class="terminal-dot g"></span><span class="terminal-title">DIFF_2026-02_MTD_20260221_220534.txt</span></div>
+<div class="terminal-body" style="font-size:11px">SNAPSHOT DIFF: 2026-02_MTD (old) -> (new)
+<span class="t-dim">============================================================</span>
+  DQ30+ Rate................. <span class="t-yellow">0.0411</span> >>> <span class="t-green">0.0387</span>
+  DQ30+ Count................ <span class="t-yellow">17</span> >>> <span class="t-green">16</span>
+  DQ30+ UPB.................. <span class="t-yellow">$1,734,201</span> >>> <span class="t-green">$1,666,548</span>
+  DQ60+ Rate................. 0.0339 (no change)
+  Performing Rate............ 0.9540 (no change)
+  Total Loans................ 413 (no change)
+
+Total changes: <span class="t-bold">3</span></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- TEMPLATE BUILDER -->
+<section class="section" id="template">
+<div class="section-label">Output Generation</div>
+<div class="section-title">Pixel-Perfect Template Builder</div>
+<p class="section-desc">574 lines generating N-column Excel templates (2-12 periods) with exact cell styling, number formats, color-coded input cells, and dynamic note generation.</p>
+<div class="card">
+<div class="card-title"><span class="icon">&#128196;</span> build_template() &mdash; 574 Lines of Formatting Logic</div>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">Lines 633-1207</span></div>
+<div class="code-body"><span class="cm"># Number format constants</span>
+<span class="var">FMT_PCT</span>  = <span class="str">'0.00%'</span>         <span class="cm"># DQ rates</span>
+<span class="var">FMT_UPB</span>  = <span class="str">'"$"#,##0'</span>      <span class="cm"># Dollar amounts</span>
+<span class="var">FMT_DATE</span> = <span class="str">'d-mmm-yy'</span>     <span class="cm"># Report dates</span>
+
+<span class="cm"># 18-column matrix header format map</span>
+<span class="var">HEADER_FORMATS</span> = {
+    <span class="str">"Loan Count"</span>:   <span class="const">None</span>,
+    <span class="str">"% of Loans"</span>:   <span class="str">'#0.0%;\\-#.0%;\\-'</span>,
+    <span class="str">"UPB ($)"</span>:      <span class="str">'\\$#,###;"-$"#,###;\\-'</span>,
+    <span class="str">"WAC Rate"</span>:     <span class="str">'#0.000%;\\-#0.000%;\\-'</span>,
+    <span class="str">"%Del30"</span>:       <span class="str">'#0.00%;[Red]\\-#0.00%;\\-'</span>,
+    <span class="str">"%Del60"</span>:       <span class="str">'#0.00%;[Red]\\-#0.00%;\\-'</span>,
+    <span class="cm">// ... 12 more header-specific formats</span>
+}
+
+<span class="cm"># Color scheme (matching original manual template)</span>
+<span class="var">YELLOW_INPUT</span>  = PatternFill(<span class="str">"FFFF00"</span>)  <span class="cm"># User input cells</span>
+<span class="var">BLUE_REF</span>      = PatternFill(<span class="str">"DCE6F1"</span>)  <span class="cm"># Reference data</span>
+<span class="var">DARK_NAVY_HDR</span> = PatternFill(<span class="str">"1E293B"</span>)  <span class="cm"># Section headers</span></div>
+</div>
+</div>
+</section>
+
+<!-- LIFECYCLE -->
+<section class="section" id="lifecycle">
+<div class="section-label">State Machine</div>
+<div class="section-title">Snapshot Lifecycle &amp; Readiness Scoring</div>
+<div class="grid-2">
+<div class="card">
+<div class="card-title"><span class="icon">&#128260;</span> DRAFT &rarr; FINAL &rarr; ARCHIVED</div>
+<div style="display:flex;align-items:center;gap:12px;margin:16px 0;justify-content:center;flex-wrap:wrap">
+<div style="padding:12px 20px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:8px;text-align:center">
+<div style="font-size:14px;font-weight:800;color:var(--accent)">DRAFT</div>
+<div style="font-size:10px;color:var(--muted)">Quick-look, freely overwritten</div>
+</div>
+<div style="color:var(--accent);font-size:20px">&rarr;</div>
+<div style="padding:12px 20px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);border-radius:8px;text-align:center">
+<div style="font-size:14px;font-weight:800;color:var(--green)">FINAL</div>
+<div style="font-size:10px;color:var(--muted)">Board-ready, requires "OVERWRITE"</div>
+</div>
+<div style="color:var(--accent);font-size:20px">&rarr;</div>
+<div style="padding:12px 20px;background:rgba(100,116,139,.12);border:1px solid rgba(100,116,139,.3);border-radius:8px;text-align:center">
+<div style="font-size:14px;font-weight:800;color:var(--muted)">ARCHIVED</div>
+<div style="font-size:10px;color:var(--muted)">MTD superseded by EOM</div>
+</div>
+</div>
+<p style="color:var(--muted);font-size:11px">Weekly sub-periods (W1-W4) for intra-month tracking. MTD&rarr;EOM promotion auto-archives all MTD variants with hard copies in <code>6_archived_periods/</code>.</p>
+</div>
+<div class="card">
+<div class="card-title"><span class="icon">&#128200;</span> Readiness Scoring Algorithm</div>
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">Lines 2592-2623</span></div>
+<div class="code-body">overall = (
+    tab_score    * <span class="num">0.30</span> +  <span class="cm"># 30% tab completeness</span>
+    val_score    * <span class="num">0.35</span> +  <span class="cm"># 35% validation pass rate</span>
+    status_score * <span class="num">0.15</span> +  <span class="cm"># 15% DRAFT vs FINAL</span>
+    null_score   * <span class="num">0.20</span>    <span class="cm"># 20% null field penalty</span>
+)
+<span class="kw">if</span> overall >= <span class="num">90</span>: <span class="str">"READY for investor consumption"</span>
+<span class="kw">elif</span> overall >= <span class="num">70</span>: <span class="str">"MOSTLY READY"</span>
+<span class="kw">else</span>: <span class="str">"NOT READY"</span></div>
+</div>
+<div class="gauge-container" style="margin-top:16px">
+<div class="gauge-ring">
+<svg width="100" height="100" viewBox="0 0 100 100">
+<circle cx="50" cy="50" r="42" fill="none" stroke="#1a2332" stroke-width="8"/>
+<circle cx="50" cy="50" r="42" fill="none" stroke="#10b981" stroke-width="8" stroke-dasharray="237.6 264" stroke-linecap="round"/>
+</svg>
+<div class="gauge-text">90%</div>
+</div>
+<div class="gauge-details">
+<div class="gauge-title">Feb 2026 MTD &mdash; Readiness Assessment</div>
+<div class="gauge-bar"><span class="bar-label">Tab Completeness</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--green)"></div></div><span class="bar-val" style="color:var(--green)">9/9</span></div>
+<div class="gauge-bar"><span class="bar-label">Validation Checks</span><div class="bar-track"><div class="bar-fill" style="width:91.6%;background:var(--accent)"></div></div><span class="bar-val" style="color:var(--accent)">11/12</span></div>
+<div class="gauge-bar"><span class="bar-label">Status</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--green)"></div></div><span class="bar-val" style="color:var(--green)">FINAL</span></div>
+<div class="gauge-bar"><span class="bar-label">Critical Nulls</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--green)"></div></div><span class="bar-val" style="color:var(--green)">0</span></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- 7-SHEET EXPORT -->
+<section class="section" id="export">
+<div class="section-label">Historical Analytics</div>
+<div class="section-title">7-Sheet Historical Export Engine</div>
+<p class="section-desc">Generates a comprehensive Excel workbook with 7 analytical sheets featuring MoM delta calculations, RAG status coloring, and trend arrows.</p>
+<div class="card">
+<div class="card-title"><span class="icon">&#128202;</span> export_ledger_excel() Sheet Architecture</div>
+<table class="data-table">
+<thead><tr><th>#</th><th>Sheet</th><th>Content</th><th>Features</th></tr></thead>
+<tbody>
+<tr><td class="num-cell">1</td><td><span class="tag tag-amber">Executive Summary</span></td><td>19 headline metrics x N periods</td><td>RAG (G/A/R) + MoM + trend arrows</td></tr>
+<tr><td class="num-cell">2</td><td><span class="tag tag-blue">KPI History</span></td><td>All 40 KPI fields x N periods</td><td>$, %, integer formatting</td></tr>
+<tr><td class="num-cell">3</td><td><span class="tag tag-cyan">DPD History</span></td><td>25 DPD bucket fields x N periods</td><td>UPB + Pct formats</td></tr>
+<tr><td class="num-cell">4</td><td><span class="tag tag-purple">Portfolio Stats</span></td><td>WAC, WALA, WARM, FICO, LTV, DTI</td><td>Metric-specific formats</td></tr>
+<tr><td class="num-cell">5</td><td><span class="tag tag-green">Vintage Analysis</span></td><td>Loan counts + DQ rates by vintage</td><td>Chronological sorting</td></tr>
+<tr><td class="num-cell">6</td><td><span class="tag tag-pink">DQ Trend</span></td><td>DQ30/60/120+ rate tracking</td><td>Multi-period comparison</td></tr>
+<tr><td class="num-cell">7</td><td><span class="tag tag-amber">Narratives</span></td><td>Watch Items, Strengths, Exec Summary</td><td>Wrap text, section-grouped</td></tr>
+</tbody>
+</table>
+<div style="margin-top:16px">
+<div class="code-block">
+<div class="code-header"><span class="filename">dq_engine_v3_1.py</span><span class="lang">MoM Change Engine (Lines 1441-1463)</span></div>
+<div class="code-body"><span class="kw">def</span> <span class="fn">_calc_mom_change</span>(old_val, new_val, fmt_type):
+    delta = n - o
+    <span class="kw">if</span> fmt_type == FMT_PCT:
+        pp = delta * <span class="num">100</span>
+        <span class="kw">return</span> (f<span class="str">"{arrow}{abs(pp):.2f}pp"</span>, delta &lt; <span class="num">0</span>)  <span class="cm"># lower = improvement</span>
+    <span class="kw">elif</span> fmt_type == FMT_UPB:
+        <span class="kw">return</span> (f<span class="str">"{arrow}${abs(delta):,.0f}"</span>, delta &lt; <span class="num">0</span>)
+
+<span class="kw">def</span> <span class="fn">_get_trend_arrow</span>(old_val, new_val, lower_is_better):
+    <span class="kw">if</span> lower_is_better:
+        <span class="kw">if</span> n &lt; o: <span class="kw">return</span> (<span class="str">"&darr;"</span>, <span class="const">True</span>)   <span class="cm"># down = improvement</span>
+    <span class="kw">else</span>:
+        <span class="kw">if</span> n &gt; o: <span class="kw">return</span> (<span class="str">"&uarr;"</span>, <span class="const">True</span>)   <span class="cm"># up = improvement</span></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- LIVE TERMINAL -->
+<section class="section" id="live-terminal">
+<div class="section-label">Live Production Output</div>
+<div class="section-title">Engine Terminal Captures</div>
+<div class="grid-2">
+<div class="terminal">
+<div class="terminal-header"><span class="terminal-dot r"></span><span class="terminal-dot y"></span><span class="terminal-dot g"></span><span class="terminal-title">$ python3 dq_engine_v3_1.py</span></div>
+<div class="terminal-body">  <span class="t-cyan">&#9556;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9559;</span>
+  <span class="t-cyan">&#9553;</span>   <span class="t-bold">DQ DASHBOARD ENGINE v3.1</span> -- PorchPass       <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   Rogue Portfolio -- Strategic Operations       <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9568;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9564;</span>
+  <span class="t-cyan">&#9553;</span>   [1] &#128248; Take a New Snapshot                  <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   [2] &#128196; Generate Data Template                <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   [3] &#128202; View Snapshot Status Dashboard        <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   [4] &#128228; Export Full History to Excel          <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   [5] &#128465; Delete a Snapshot                     <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   [6] &#128260; Update/Re-snapshot Existing Period    <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   [7] &#128229; Import Narratives                     <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   [8] &#128203; Monthly Digest                        <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   [9] &#128214; Help &amp; Reference Guide                <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9553;</span>   [0] &#128682; Exit                                  <span class="t-cyan">&#9553;</span>
+  <span class="t-cyan">&#9562;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9565;</span>
+  &#128218; Ledger: <span class="t-bold">3 periods</span> | Latest: <span class="t-bold">Feb 2026 MTD_W3</span></div>
+</div>
+<div class="terminal">
+<div class="terminal-header"><span class="terminal-dot r"></span><span class="terminal-dot y"></span><span class="terminal-dot g"></span><span class="terminal-title">Option [3] -- Status Dashboard</span></div>
+<div class="terminal-body"><span class="t-cyan">============================================================</span>
+  <span class="t-bold">&#128202;  SNAPSHOT STATUS DASHBOARD</span>
+<span class="t-cyan">============================================================</span>
+    -- <span class="t-bold">2026</span> --
+    [ 1] 2026-01_EOM  --  Jan 2026 EOM <span class="t-green">[FINAL]</span>
+    [ 2] 2026-02_MTD  --  Feb 2026 MTD <span class="t-green">[FINAL]</span>
+    [ 3] 2026-02_MTD_W3  --  Feb 2026 MTD W3 <span class="t-yellow">[DRAFT]</span>
+
+  Snapshot files on disk: <span class="t-bold">5</span>
+  Generated templates: <span class="t-bold">2</span>
+    &#128196; Rogue_DQ_Dashboard_2026-02_MTD_Input_Template.xlsx
+    &#128196; Rogue_DQ_Dashboard_2026-02_MTD_W3_Input_Template.xlsx
+
+  <span class="t-green">&#9989; [ISSUES] No outstanding data quality issues.</span></div>
+</div>
+</div>
+</section>
+
+<!-- DASHBOARD OUTPUT -->
+<section class="section" id="dashboard-output">
+<div class="section-label">End-to-End Integration</div>
+<div class="section-title">Complete Pipeline: Engine to Board-Ready Dashboard</div>
+<div class="card" style="margin-bottom:16px">
+<div class="card-title"><span class="icon">&#128279;</span> System Interconnection Map</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin:16px 0">
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+<div style="padding:10px 16px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:8px;min-width:200px;text-align:center">
+<div style="font-size:12px;font-weight:700;color:var(--accent)">RCU_Feb2026_Engine.xlsx</div>
+<div style="font-size:10px;color:var(--muted)">35 sheets | 313K cells | 126K formulas</div>
+</div>
+<div style="color:var(--accent);font-family:var(--mono);font-size:11px">--&gt;</div>
+<div style="padding:10px 16px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);border-radius:8px;min-width:200px;text-align:center">
+<div style="font-size:12px;font-weight:700;color:var(--green)">dq_engine_v3_1.py</div>
+<div style="font-size:10px;color:var(--muted)">2,846 lines | 9 extractors</div>
+</div>
+<div style="color:var(--green);font-family:var(--mono);font-size:11px">--&gt;</div>
+<div style="padding:10px 16px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);border-radius:8px;min-width:200px;text-align:center">
+<div style="font-size:12px;font-weight:700;color:var(--purple)">dq_ledger.json</div>
+<div style="font-size:10px;color:var(--muted)">Validated snapshots | 51KB</div>
+</div>
+<div style="color:var(--purple);font-family:var(--mono);font-size:11px">--&gt;</div>
+<div style="padding:10px 16px;background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.25);border-radius:8px;min-width:200px;text-align:center">
+<div style="font-size:12px;font-weight:700;color:var(--cyan)">DQ Dashboard HTML</div>
+<div style="font-size:10px;color:var(--muted)">Board-ready | Chart.js</div>
+</div>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-title"><span class="icon">&#128200;</span> Live Portfolio KPIs (Feb 2026 MTD)</div>
+<div class="grid-4">
+<div class="stat-box" style="border-top:3px solid var(--green)"><div class="stat-val" style="color:var(--green);font-size:18px">413</div><div class="stat-label">Total Loans</div></div>
+<div class="stat-box" style="border-top:3px solid var(--cyan)"><div class="stat-val" style="color:var(--cyan);font-size:18px">$51.8M</div><div class="stat-label">Total UPB</div></div>
+<div class="stat-box" style="border-top:3px solid var(--green)"><div class="stat-val" style="color:var(--green);font-size:18px">3.87%</div><div class="stat-label">DQ30+ Rate</div></div>
+<div class="stat-box" style="border-top:3px solid var(--accent)"><div class="stat-val" style="color:var(--accent);font-size:18px">3.39%</div><div class="stat-label">DQ60+ Rate</div></div>
+</div>
+<div class="grid-4" style="margin-top:8px">
+<div class="stat-box"><div class="stat-val" style="font-size:14px">394</div><div class="stat-label">Performing (95.4%)</div></div>
+<div class="stat-box"><div class="stat-val" style="font-size:14px">9.86%</div><div class="stat-label">WAC</div></div>
+<div class="stat-box"><div class="stat-val" style="font-size:14px">618</div><div class="stat-label">Avg FICO</div></div>
+<div class="stat-box"><div class="stat-val" style="font-size:14px">84.7%</div><div class="stat-label">Avg LTV</div></div>
+</div>
+</div>
+</section>
+
+<!-- SPECS -->
+<section class="section" id="specs">
+<div class="section-label">Technical Specifications</div>
+<div class="section-title">System Architecture Summary</div>
+<div class="grid-2">
+<div class="card">
+<div class="card-title"><span class="icon">&#9881;</span> Engine Specifications</div>
+<table class="data-table">
+<tbody>
+<tr><td style="color:var(--muted)">Engine Version</td><td><span class="tag tag-green">v3.1 (Gap Closure)</span></td></tr>
+<tr><td style="color:var(--muted)">Lines of Code</td><td style="font-family:var(--mono)">2,846</td></tr>
+<tr><td style="color:var(--muted)">Language</td><td>Python 3.x + openpyxl</td></tr>
+<tr><td style="color:var(--muted)">Extraction Modules</td><td style="font-family:var(--mono)">9</td></tr>
+<tr><td style="color:var(--muted)">Validation Checks</td><td style="font-family:var(--mono)">12</td></tr>
+<tr><td style="color:var(--muted)">Menu Operations</td><td style="font-family:var(--mono)">9</td></tr>
+<tr><td style="color:var(--muted)">Template Builder</td><td style="font-family:var(--mono)">574 lines, 11 output tabs</td></tr>
+<tr><td style="color:var(--muted)">Export Engine</td><td style="font-family:var(--mono)">7 analytical sheets</td></tr>
+<tr><td style="color:var(--muted)">Audit Gaps Resolved</td><td><span class="tag tag-green">14/14</span></td></tr>
+</tbody>
+</table>
+</div>
+<div class="card">
+<div class="card-title"><span class="icon">&#128193;</span> 6-Folder Architecture</div>
+<div class="code-block">
+<div class="code-header"><span class="filename">DQ_Dashboard_Engine/</span><span class="lang">Directory</span></div>
+<div class="code-body" style="font-size:11px"><span class="t-bold">DQ_Dashboard_Engine/</span>
+<span class="t-dim">|--</span> dq_engine_v3_1.py       <span class="t-dim"># 2,846 lines</span>
+<span class="t-dim">|--</span> dq_ledger.json          <span class="t-dim"># 51KB JSON DB</span>
+<span class="t-dim">|--</span> known_issues.json       <span class="t-dim"># Issue tracker</span>
+<span class="t-dim">|--</span> <span class="t-yellow">1_engine_input/</span>         <span class="t-dim"># Drop .xlsx here</span>
+<span class="t-dim">|--</span> <span class="t-green">2_snapshots/</span>            <span class="t-dim"># Year/month org</span>
+<span class="t-dim">|</span>   <span class="t-dim">|--</span> 2026/01.Jan/ 02.Feb/
+<span class="t-dim">|</span>   <span class="t-dim">|--</span> _backups/           <span class="t-dim"># Last 10 copies</span>
+<span class="t-dim">|--</span> <span class="t-cyan">3_templates_for_html/</span>   <span class="t-dim"># .xlsx templates</span>
+<span class="t-dim">|--</span> <span class="t-bold">4_history_export/</span>       <span class="t-dim"># 7-sheet exports</span>
+<span class="t-dim">|--</span> <span style="color:var(--purple)">5_change_log/</span>           <span class="t-dim"># Diffs, validation</span>
+<span class="t-dim">|--</span> <span class="t-red">6_archived_periods/</span>     <span class="t-dim"># Permanent MTD copies</span></div>
+</div>
+</div>
+</div>
+<div class="card" style="margin-top:16px">
+<div class="card-title"><span class="icon">&#128736;</span> v3.0 &rarr; v3.1: All 14 Audit Gaps Resolved</div>
+<div class="grid-4">
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">E1</span> Vintage + DQ Trend sheets</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">E2</span> MoM Change Calculations</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">E3</span> RAG Status + Trend Arrows</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">F1</span> Validation Reports</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">F2</span> Issue Tracker + Auto-Clear</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">F3</span> Graceful Tab Handling</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">H1</span> Multi-Period Smart Sort</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">H2</span> MTD&rarr;EOM Promotion</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">I4</span> Monthly Digest + Readiness</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">C3</span> Snapshot Diff on Overwrite</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">G2</span> Colorama Terminal Styling</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">C1</span> DRAFT/FINAL Tagging</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">C2</span> Weekly Sub-Periods (W1-W4)</div>
+<div style="font-size:10px;font-family:var(--mono);padding:4px 0"><span class="tag tag-green">P4</span> Year-Grouped Navigation</div>
+</div>
+</div>
+</section>
+
+<div class="footer">
+<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">DQ Dashboard Engine v3.1 &mdash; Technical Architecture Showcase</div>
+<div>PorchPass LLC | Strategic Operations | Rogue Portfolio Capital Markets Data Infrastructure</div>
+<div style="margin-top:4px">2,846 Lines Python | 313,493 Source Cells | 126,199 Formulas | 9 Extractors | 12 Validations | 7-Sheet Export</div>
+<div style="margin-top:8px;color:var(--accent)">Built by Nick Friedman &mdash; February 2026</div>
+</div>
+
+</div>
+<script>
+function scrollToSection(id){document.getElementById(id).scrollIntoView({behavior:'smooth',block:'start'});document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('active')});event.target.classList.add('active')}
+var sections=document.querySelectorAll('section[id]');
+window.addEventListener('scroll',function(){var current='';sections.forEach(function(s){if(pageYOffset>=s.offsetTop-100)current=s.getAttribute('id')});document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('active');if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf(current)>-1)b.classList.add('active')})});
+</script>
+</body>
+</html>
